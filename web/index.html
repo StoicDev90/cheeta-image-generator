@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Cheeta Image Generator Studio</title>
+  <meta name="description" content="Estudio local para generar imágenes con Z-Image Turbo y Grok Imagine de Higgsfield.">
+  <style>
+    /* Shape rule: panels 16px, controls 10px, small chips 8px. Elevation by border only. */
+    :root {
+      --bg: #0d0c0b; --panel: #141311; --field: #1b1917; --line: #2b2825; --line-strong: #3b3732;
+      --text: #ece8e1; --muted: #a39d94; --hint: #8c867d;
+      --accent: #f2a93b; --on-accent: #1a1206;
+      --err: #ff8f80; --ok: #8fd6a2;
+      --display: 'Bricolage Grotesque Variable', 'Geist Variable', system-ui, sans-serif;
+      --sans: 'Geist Variable', system-ui, sans-serif;
+      --mono: 'Geist Mono Variable', ui-monospace, monospace;
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    * { box-sizing: border-box; }
+    html { scrollbar-color: var(--line-strong) var(--bg); }
+    ::selection { background: var(--accent); color: var(--on-accent); }
+    body {
+      margin: 0; min-height: 100dvh; display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text); font: 400 16px/1.55 var(--sans);
+      caret-color: var(--accent); -webkit-font-smoothing: antialiased;
+    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .wrap { width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 768px) { .wrap { padding: 0 32px; } }
+
+    /* Header */
+    header { border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; }
+    .brand { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+    .brand b { font: 700 22px/1 var(--display); letter-spacing: -.02em; color: var(--accent); }
+    .brand span { font-size: 14px; color: var(--muted); }
+    nav { display: flex; gap: 24px; font-size: 14px; white-space: nowrap; }
+    nav a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    nav a:hover { color: var(--text); }
+    @media (max-width: 640px) { .brand span { display: none; } nav { gap: 16px; } }
+
+    /* Intro */
+    .intro { padding: 40px 0 28px; display: grid; gap: 12px; }
+    .intro h1 { margin: 0; font: 700 clamp(30px, 5vw, 52px)/1.04 var(--display); letter-spacing: -.03em; text-wrap: balance; max-width: 18ch; }
+    .intro p { margin: 0; color: var(--muted); max-width: 52ch; }
+
+    /* Studio */
+    .studio { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 24px; align-items: start; padding-bottom: 72px; }
+    @media (max-width: 960px) { .studio { grid-template-columns: 1fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+    form.panel { display: grid; gap: 20px; }
+    .field { display: grid; gap: 8px; }
+    .field > label, .field > .lab { font-size: 13px; font-weight: 500; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+    .hint { font-size: 12px; color: var(--hint); }
+    .num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--hint); }
+    textarea, input[type=number], input[type=file] {
+      width: 100%; background: var(--field); color: var(--text); border: 1px solid var(--line);
+      border-radius: 10px; padding: 12px; font: inherit; transition: border-color .15s;
+    }
+    textarea { resize: vertical; min-height: 132px; line-height: 1.5; }
+    textarea::placeholder, input::placeholder { color: var(--hint); }
+    textarea:hover, input[type=number]:hover { border-color: var(--line-strong); }
+    textarea:focus, input[type=number]:focus { outline: none; border-color: var(--accent); }
+
+    /* Segmented + aspect chips (real radios, visually hidden) */
+    .seg, .ratios { border: 0; margin: 0; padding: 0; min-width: 0; }
+    .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ratios { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .seg input, .ratios input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg label, .ratios label {
+      display: grid; place-items: center; gap: 6px; cursor: pointer; user-select: none;
+      background: var(--field); border: 1px solid var(--line); color: var(--muted);
+      border-radius: 10px; padding: 10px 6px; font: 500 13px var(--sans); transition: border-color .15s, color .15s, background .15s;
+    }
+    .seg label { padding: 11px 6px; }
+    .seg label small { font: 400 11px var(--sans); color: var(--hint); }
+    .ratios label { font: 500 11px var(--mono); padding: 10px 4px 8px; }
+    .ratios i { display: block; border: 1.5px solid currentColor; border-radius: 3px; }
+    .seg label:hover, .ratios label:hover { border-color: var(--line-strong); color: var(--text); }
+    .seg input:checked + label, .ratios input:checked + label { border-color: var(--accent); color: var(--accent); background: #f2a93b14; }
+    .seg input:focus-visible + label, .ratios input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Seed row */
+    .seedrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    button.ghost {
+      background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+      padding: 0 14px; font: 500 13px var(--sans); cursor: pointer; transition: border-color .15s;
+    }
+    button.ghost:hover { border-color: var(--line-strong); }
+
+    /* Toggle */
+    .toggle { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; cursor: pointer; }
+    .toggle .t { font-size: 14px; font-weight: 500; }
+    .toggle .hint { grid-column: 1; }
+    .toggle input { position: absolute; opacity: 0; }
+    .sw { grid-column: 2; grid-row: 1 / span 2; width: 40px; height: 24px; border-radius: 999px; background: var(--field); border: 1px solid var(--line-strong); position: relative; transition: background .2s var(--ease), border-color .2s; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform .25s var(--ease), background .2s; }
+    .toggle input:checked ~ .sw { background: var(--accent); border-color: var(--accent); }
+    .toggle input:checked ~ .sw::after { transform: translateX(16px); background: var(--on-accent); }
+    .toggle input:focus-visible ~ .sw { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Reference images */
+    [hidden] { display: none !important; }
+    .refs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .refs .thumb { position: relative; width: 64px; height: 64px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+    .refs .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .refs .thumb button { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #000c; color: var(--text); font: 600 13px/1 var(--sans); cursor: pointer; }
+    .refs .add { width: 64px; height: 64px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--field); color: var(--muted); font-size: 22px; cursor: pointer; transition: border-color .15s; }
+    .refs .add:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Generate */
+    button#go {
+      width: 100%; padding: 14px; border: 0; border-radius: 10px; cursor: pointer; background: var(--accent); color: var(--on-accent);
+      font: 600 15px var(--sans); transition: transform .15s var(--ease), filter .15s;
+    }
+    button#go:hover { filter: brightness(1.07); }
+    button#go:active { transform: scale(.98); }
+    button#go:disabled { opacity: .55; cursor: progress; }
+    .cost { text-align: center; }
+
+    /* Canvas */
+    .canvas { position: sticky; top: 16px; display: grid; gap: 16px; }
+    @media (max-width: 960px) { .canvas { position: static; } }
+    .frame-wrap { display: grid; place-items: center; min-height: 360px; }
+    .frame {
+      --ar: 1 / 1; --arn: 1; position: relative; overflow: hidden; border-radius: 16px; border: 1px solid var(--line);
+      background: var(--panel); aspect-ratio: var(--ar); width: min(100%, calc(72vh * var(--arn)));
+      transition: width .35s var(--ease);
+    }
+    .frame img { width: 100%; height: 100%; object-fit: contain; display: block; animation: reveal .6s var(--ease); }
+    @keyframes reveal { from { opacity: 0; filter: blur(14px); transform: scale(1.02); } }
+    .frame .empty, .frame .fail { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; padding: 24px; text-align: center; }
+    .empty h2, .fail h2 { margin: 0; font: 600 18px var(--display); }
+    .empty p, .fail p { margin: 0 auto; color: var(--muted); font-size: 14px; max-width: 34ch; }
+    .fail h2 { color: var(--err); }
+    .skeleton { position: absolute; inset: 0; background: linear-gradient(100deg, var(--panel) 30%, #211f1c 50%, var(--panel) 70%) 0 0 / 250% 100%; animation: shimmer 1.6s linear infinite; display: grid; place-content: center; text-align: center; gap: 4px; }
+    @keyframes shimmer { to { background-position: -150% 0; } }
+    .skeleton b { font: 500 14px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
+    .skeleton span { font-size: 13px; color: var(--hint); }
+    .meta { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+    .meta code { font: 400 13px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+    .meta .acts { display: flex; gap: 8px; }
+    .meta a { display: inline-grid; place-items: center; text-decoration: none; color: var(--text); background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; font: 500 13px var(--sans); transition: border-color .15s; }
+    .meta a:hover { border-color: var(--line-strong); }
+    .meta[hidden] { display: none; }
+    #msg { margin: 0; font-size: 14px; color: var(--muted); min-height: 1.5em; }
+    #msg.ok { color: var(--ok); }
+
+    /* Session strip */
+    .strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+    .strip[hidden] { display: none; }
+    .strip button { flex: none; width: 76px; height: 76px; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--panel); scroll-snap-align: start; transition: border-color .15s; }
+    .strip button:hover { border-color: var(--line-strong); }
+    .strip button[aria-current=true] { border-color: var(--accent); }
+    .strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* About */
+    .about { border-top: 1px solid var(--line); padding: 56px 0 72px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px 64px; }
+    @media (max-width: 860px) { .about { grid-template-columns: 1fr; } }
+    .about h2 { margin: 0; font: 700 clamp(24px, 3.4vw, 34px)/1.1 var(--display); letter-spacing: -.02em; max-width: 14ch; text-wrap: balance; }
+    .about .body { display: grid; gap: 20px; max-width: 62ch; }
+    .about p { margin: 0; color: var(--muted); }
+    .about p b { color: var(--text); font-weight: 500; }
+    .about code { font: 400 13px var(--mono); color: var(--text); background: var(--field); padding: 1px 6px; border-radius: 6px; }
+
+    main { flex: 1; }
+    footer { border-top: 1px solid var(--line); font-size: 13px; color: var(--hint); }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 32px; justify-content: space-between; padding-top: 24px; padding-bottom: 24px; }
+    footer a { color: var(--muted); text-underline-offset: 3px; }
+    footer a:hover { color: var(--text); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand"><b>Cheeta</b><span>Image Generator Studio</span></div>
+      <nav aria-label="Principal">
+        <a href="#estudio">Estudio</a>
+        <a href="#acerca">Acerca de</a>
+        <a href="https://docs.higgsfield.ai" target="_blank" rel="noopener">Docs de la API</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap intro">
+      <h1>Escribe una idea y mírala hecha imagen.</h1>
+      <p>Genera con Z-Image Turbo o Grok Imagine de Higgsfield desde tu propio equipo. Cada resultado se guarda solo en tu carpeta de imágenes.</p>
+    </section>
+
+    <section class="wrap studio" id="estudio" aria-label="Estudio de generación">
+      <form id="f" class="panel" novalidate>
+        <div class="field">
+          <label for="prompt">Prompt <span class="num" id="count">0/800</span></label>
+          <textarea id="prompt" maxlength="800" required placeholder="Un faro sobre un acantilado al atardecer, fotografía analógica, grano fino"></textarea>
+        </div>
+
+        <fieldset class="field seg" style="display:grid">
+          <legend class="lab" style="grid-column:1/-1;font-size:13px;font-weight:500;color:var(--muted);padding:0;margin-bottom:8px">Modelo</legend>
+          <input type="radio" name="model" id="m1" value="z-image" checked><label for="m1">Z-Image Turbo<small>Rápido</small></label>
+          <input type="radio" name="model" id="m2" value="grok"><label for="m2">Grok Imagine 2.0<small>xAI · con referencias</small></label>
+        </fieldset>
+
+        <fieldset class="field seg" id="quality" style="display:grid" hidden>
+          <legend class="lab" style="grid-column:1/-1;font-size:13px;font-weight:500;color:var(--muted);padding:0;margin-bottom:8px">Calidad del modelo</legend>
+          <input type="radio" name="quality" id="q1" value="low"><label for="q1">Baja<small>Más barata</small></label>
+          <input type="radio" name="quality" id="q2" value="medium" checked><label for="q2">Media<small>Predeterminada</small></label>
+        </fieldset>
+
+        <fieldset class="field seg" style="display:grid">
+          <legend class="lab" style="grid-column:1/-1;font-size:13px;font-weight:500;color:var(--muted);padding:0;margin-bottom:8px">Resolución</legend>
+          <input type="radio" name="resolution" id="r1" value="1k" checked><label for="r1">1K<small>Rápida</small></label>
+          <input type="radio" name="resolution" id="r2" value="2k"><label for="r2">2K<small>Más detalle</small></label>
+        </fieldset>
+
+        <fieldset class="field ratios" id="ratios" style="display:grid">
+          <legend class="lab" style="grid-column:1/-1;font-size:13px;font-weight:500;color:var(--muted);padding:0;margin-bottom:8px">Formato</legend>
+        </fieldset>
+
+        <div class="field" id="seedf">
+          <label for="seed">Seed <span class="hint">opcional</span></label>
+          <div class="seedrow">
+            <input id="seed" type="number" min="0" max="2147483647" inputmode="numeric" placeholder="Aleatoria">
+            <button type="button" class="ghost" id="dice">Sortear</button>
+          </div>
+          <span class="hint">Misma seed y mismo prompt dan un resultado parecido.</span>
+        </div>
+
+        <label class="toggle" id="extendf">
+          <span class="t">Mejorar el prompt</span>
+          <input id="extend" type="checkbox">
+          <span class="sw" aria-hidden="true"></span>
+          <span class="hint">La IA reescribe tu texto antes de generar. Tarifa superior.</span>
+        </label>
+
+        <div class="field" id="reff" hidden>
+          <span class="lab">Imágenes de referencia <span class="hint">opcional · hasta 5</span></span>
+          <div class="refs" id="refs"></div>
+          <input id="reffile" type="file" accept="image/*" multiple hidden>
+          <span class="hint">Se suben a Higgsfield para transformar o refinar a partir de ellas.</span>
+        </div>
+
+        <div>
+          <button id="go" type="submit">Generar imagen</button>
+          <p class="hint cost">Cada generación consume créditos. Ctrl + Enter también genera.</p>
+        </div>
+      </form>
+
+      <div class="canvas">
+        <div class="frame-wrap">
+          <div class="frame" id="frame">
+            <div class="empty" id="empty">
+              <h2>Tu lienzo está vacío</h2>
+              <p>Escribe un prompt y elige un formato. El marco de aquí toma la proporción que elijas.</p>
+            </div>
+          </div>
+        </div>
+        <p id="msg" role="status" aria-live="polite"></p>
+        <div class="meta" id="meta" hidden>
+          <code id="fname"></code>
+          <div class="acts"><a id="dl" download>Descargar</a><a id="open" target="_blank" rel="noopener">Abrir</a></div>
+        </div>
+        <div class="strip" id="strip" hidden aria-label="Imágenes de esta sesión"></div>
+      </div>
+    </section>
+
+    <section class="wrap about" id="acerca">
+      <h2>Qué hace este estudio</h2>
+      <div class="body">
+        <p><b>Todo ocurre en tu equipo.</b> Un servidor local de Flask guarda tu clave de Higgsfield y habla con la API. El navegador nunca la ve.</p>
+        <p><b>Espera hasta tener el resultado.</b> Al generar, la página queda a la espera mientras Higgsfield trabaja. Si la solicitud falla, se cancela o es moderada, lo dirá con claridad y no guardará nada.</p>
+        <p><b>Las imágenes quedan guardadas.</b> Cada resultado se descarga a una subcarpeta por modelo, <code>generated-images/z-image/</code> o <code>generated-images/grok/</code>, con la fecha y la hora en el nombre.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Cheeta Image Generator Studio, uso personal y local. By StoicDev90</span>
+      <span>Modelos z-image/turbo y grok-imagine-image-2.0 vía <a href="https://higgsfield.ai" target="_blank" rel="noopener">Higgsfield</a></span>
+    </div>
+  </footer>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
