@@ -5,4 +5,5 @@ node_modules/
 web/dist/
 generated-images/
 .claude
+skills-lock.json
 
